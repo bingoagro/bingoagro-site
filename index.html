@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BINGO AGRO · Mangga Harumanis Perlis</title>
+<meta name="description" content="Bingo Agro — ladang mangga Harumanis di Perlis, Malaysia. Hubungi 010-2802580.">
+<meta name="theme-color" content="#1F6B3A">
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#3e2716;overflow:hidden;-webkit-tap-highlight-color:transparent}
+  #stage{position:fixed;inset:0;overflow:hidden}
+  #scene{position:absolute;left:0;top:0;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:manipulation;display:block}
+  .ui{font-family:'Silkscreen',ui-monospace,monospace;letter-spacing:.06em}
+  header{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;text-align:center}
+  h1{margin:0;line-height:0}
+  #logo{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .tag{color:#123f22;font-size:clamp(11px,2.6vw,16px);text-shadow:1px 1px 0 rgba(255,255,255,.55)}
+  footer{position:absolute;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:8px;color:#f6efd6;text-align:center}
+  .contact{font-size:clamp(13px,3.2vw,16px);text-shadow:0 1px 0 rgba(0,0,0,.55)}
+  .contact a{color:#F2A900;text-decoration:none}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="scene" aria-label="Animasi piksel pokok mangga Harumanis. Ketik pokok untuk menggoyangkannya." role="img"></canvas>
+  <header>
+    <h1><span class="sr">BINGO AGRO</span><canvas id="logo" aria-hidden="true"></canvas></h1>
+    <div class="tag ui">Mangga Harumanis · Perlis</div>
+  </header>
+  <footer class="ui">
+    <div class="contact">Hubungi: <a href="tel:+60102802580">010-2802580</a></div>
+  </footer>
+</div>
+<noscript><p style="color:#fff;font-family:sans-serif;text-align:center">BINGO AGRO · Mangga Harumanis Perlis · 010-2802580</p></noscript>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const cvs=$('scene'),ctx=cvs.getContext('2d');
+const header=document.querySelector('header'),footer=document.querySelector('footer');
+const Q=new URLSearchParams(location.search);
+
+/* ---------- helpers ---------- */
+const C=h=>{const n=parseInt(h.slice(1),16);return((255<<24)|((n&255)<<16)|(((n>>8)&255)<<8)|(n>>16))>>>0};
+const BAY=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>(v+.5)/16);
+const bay=(x,y)=>BAY[(y&3)*4+(x&3)];
+function h2(x,y){let n=(Math.imul(x|0,374761393)+Math.imul(y|0,668265263))|0;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967296}
+function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const ss=(a,b,v)=>{v=clamp((v-a)/(b-a),0,1);return v*v*(3-2*v)};
+const lerp=(a,b,t)=>a+(b-a)*t;
+
+/* ---------- pixel wordmark ---------- */
+const GL={
+B:["11110","10001","10001","11110","10001","10001","11110"],
+I:["111","010","010","010","010","010","111"],
+N:["10001","11001","10101","10011","10001","10001","10001"],
+G:["01110","10001","10000","10111","10001","10001","01111"],
+O:["01110","10001","10001","10001","10001","10001","01110"],
+A:["01110","10001","10001","11111","10001","10001","10001"],
+R:["11110","10001","10001","11110","10100","10010","10001"]};
+function drawLogo(){
+  const words=[["BINGO","#1F6B3A"],["AGRO","#F2A900"]];
+  const cells=[];let x=2;
+  words.forEach(([w,col],wi)=>{for(const ch of w){const g=GL[ch];const gw=g[0].length;
+    for(let y=0;y<7;y++)for(let i=0;i<gw;i++)if(g[y][i]==='1'){cells.push([x+i,y+2,col]);cells.push([x+i+1,y+2,col]);}
+    x+=gw+2;} if(wi===0)x+=3;});
+  const lw=x+1,lh=12;const lc=$('logo');lc.width=lw;lc.height=lh;const g=lc.getContext('2d');
+  const set=new Set(cells.map(c=>c[0]+','+c[1]));
+  g.fillStyle='#0b2414';
+  for(const [cx,cy] of cells)for(let dy=-1;dy<=2;dy++)for(let dx=-1;dx<=1;dx++)if(!set.has((cx+dx)+','+(cy+dy)))g.fillRect(cx+dx,cy+dy,1,1);
+  for(const [cx,cy,col] of cells){g.fillStyle=col;g.fillRect(cx,cy,1,1);}
+  // highlight top pixels
+  for(const [cx,cy,col] of cells){if(!set.has(cx+','+(cy-1))){g.fillStyle=col==='#F2A900'?'#ffd45c':'#2f8a50';g.fillRect(cx,cy,1,1);}}
+  const k=clamp(Math.floor(Math.min(innerWidth*0.86/lw,(innerHeight*0.11)/lh)),2,8);
+  lc.style.width=lw*k+'px';lc.style.height=lh*k+'px';
+}
+
+/* ---------- state ---------- */
+let HB=0,S=3,W=0,H=0,groundY=0,horizonY=0,treeX=0,baseY=0,TH=60;
+let sky,land,layer,lctx,limg,lbuf,LW=0,LH=0,LX=0,LY=0,BX=0,BY=0;
+let clock=0,real=0,paused=false,dirty=true,lastStage=-1;
+let shakeA=0,shakeT=-99;const leaves=[];const clouds=[];
+let R=rng(7);
+
+/* timeline (s) */
+const KEY=[[1.5,0],[4,0.12],[7.5,0.42],[10.5,0.78],[13,1]];
+function growth(t){if(t<=KEY[0][0])return 0;for(let i=1;i<KEY.length;i++){if(t<=KEY[i][0]){const [t0,g0]=KEY[i-1],[t1,g1]=KEY[i];return lerp(g0,g1,ss(0,1,(t-t0)/(t1-t0)))}}return 1}
+
+/* ---------- tree model (units of TH) ---------- */
+const BLOBS=[ // cx, cy, r, threshold
+ [0,.68,.30,.08],[-.30,.62,.25,.10],[.30,.62,.25,.10],
+ [-.52,.53,.17,.36],[.53,.53,.17,.36],[-.17,.84,.17,.28],[.18,.85,.16,.28],
+ [-.40,.75,.17,.45],[.42,.74,.17,.45],[-.27,.49,.17,.2],[.28,.48,.17,.22],[.02,.92,.12,.55]];
+const LIMBS=[[-.27,.52],[.28,.52],[.03,.6],[-.48,.56],[.5,.56]];
+const PAL=['#0f3018','#17431f','#1d5527','#256a2f','#348238','#4f9c44'].map(C);
+const OUT=C('#0a2412');
+const BARK=[C('#3a2414'),C('#5a3a22'),C('#7a5434'),C('#2c1b0f')];
+let FLW=[],FRU=[];
+function bottomAt(x){let b=9;for(const [cx,cy,r] of BLOBS){const d=x-cx;if(Math.abs(d)<r*.92){b=Math.min(b,cy-Math.sqrt(r*r-d*d))}}return b}
+function plan(){
+  const r=rng(42);FLW=[];FRU=[];
+  const up=[0,1,2,5,6,7,8,11,3,4];
+  for(let k=0;k<30;k++){const b=BLOBS[up[k%up.length]];const a=lerp(.3,2.85,r());
+    FLW.push({x:b[0]+Math.cos(a)*b[2]*.93,y:b[1]+Math.sin(a)*b[2]*.93,len:4+((r()*3)|0),d:r()*1.8});}
+  const N=9;
+  for(let i=0;i<N;i++){const x=-.56+(i+.5)*1.12/N+(r()-.5)*.04;const by=bottomAt(x);
+    FRU.push({x,y:by+.02+(i%3===1?.1:0)+r()*.07,st:2+((r()*3)|0),d:r()*1.6,flip:r()<.5});}
+}
+
+/* ---------- layout ---------- */
+function layout(){
+  drawLogo();
+  const cw=innerWidth,ch=innerHeight;
+  S=Math.max(2,Math.min(Math.round(ch/150),Math.floor(cw/100)));
+  W=Math.ceil(cw/S);H=Math.ceil(ch/S);
+  cvs.width=W;cvs.height=H;cvs.style.width=W*S+'px';cvs.style.height=H*S+'px';
+  const fh=footer.offsetHeight+14;
+  groundY=H-Math.max(Math.round(H*.17),Math.ceil(fh/S)+5);
+  horizonY=groundY-Math.max(6,Math.round(H*.07));
+  const hb=Math.ceil((header.offsetTop+header.offsetHeight)/S)+5;HB=hb;
+  TH=Math.floor(Math.max(30,Math.min(groundY-hb-6,H*.62,(W-6)/1.4)));
+  treeX=Math.round(W/2);baseY=groundY+2;
+  LW=Math.ceil(TH*1.5)+12;LH=TH+18;BX=LW>>1;BY=LH-6;LX=treeX-BX;LY=baseY-BY;
+  layer=document.createElement('canvas');layer.width=LW;layer.height=LH;lctx=layer.getContext('2d');
+  limg=lctx.createImageData(LW,LH);lbuf=new Uint32Array(limg.data.buffer);
+  makeSky();makeLand();makeClouds();dirty=true;
+}
+
+/* ---------- background ---------- */
+function makeSky(){
+  sky=document.createElement('canvas');sky.width=W;sky.height=H;const g=sky.getContext('2d');
+  const im=g.createImageData(W,H),b=new Uint32Array(im.data.buffer);
+  const st=['#4fa6d6','#72bde2','#98d0ea','#bfe3ef','#def2f1'].map(C);
+  for(let y=0;y<H;y++){const f=clamp(y/horizonY,0,1)*(st.length-1.001);const i=Math.floor(f);
+    for(let x=0;x<W;x++)b[y*W+x]=st[(f-i)>bay(x,y)?i+1:i];}
+  const sx=Math.round(W*.84),sy=Math.round(Math.max(H*.12,HB+Math.max(4,H*.035)+3)),sr=Math.max(4,Math.round(H*.035));
+  for(let y=-sr-2;y<=sr+2;y++)for(let x=-sr-2;x<=sr+2;x++){const d=Math.hypot(x,y);const px=sx+x,py=sy+y;if(px<0||py<0||px>=W)continue;
+    if(d<=sr)b[py*W+px]=d>sr-1.2?C('#ffe58a'):C('#fff6c8');else if(d<=sr+2&&bay(px,py)<.35)b[py*W+px]=C('#f4f0c0');}
+  g.putImageData(im,0,0);
+}
+function makeLand(){
+  land=document.createElement('canvas');land.width=W;land.height=H;const g=land.getContext('2d');
+  const im=g.createImageData(W,H),b=new Uint32Array(im.data.buffer);const r=rng(11);
+  const put=(x,y,c)=>{if(x>=0&&y>=0&&x<W&&y<H)b[y*W+x]=c};
+  // limestone hills: far and near
+  function hills(n,hmin,hmax,wmin,wmax,pmin=2.6,pmax=4.5){const hs=[];for(let i=0;i<n;i++)hs.push({c:r()*W,h:lerp(hmin,hmax,r()),w:lerp(wmin,wmax,r()),p:lerp(pmin,pmax,r())});
+    return x=>{let m=0;for(const k of hs){const d=Math.abs(x-k.c)/k.w;if(d<1)m=Math.max(m,k.h*(1-Math.pow(d,k.p))*(1+.04*Math.sin(x*.9+k.c)))}return m}}
+  const far=hills(Math.ceil(W/40)+2,H*.10,H*.2,12,26),near=hills(Math.ceil(W/70)+2,H*.07,H*.16,10,20,1.8,2.6);
+  const farC=[C('#8fb7ac'),C('#a3c4b8'),C('#b9d1c6')],nearV=[C('#2f6a45'),C('#3c7d50'),C('#4d915c')],cliff=[C('#9aa69a'),C('#b8c0b2'),C('#7d8c80')];
+  for(let x=0;x<W;x++){
+    const fh=Math.round(far(x));for(let y=horizonY-fh;y<horizonY;y++){const t=y-(horizonY-fh);put(x,y,t<1?farC[2]:(h2(x,y>>1)<.25?farC[1]:farC[0]))}
+    const nh=Math.round(near(x)),sl=Math.abs(near(x+1)-near(x-1))/2;
+    for(let y=horizonY-nh;y<horizonY;y++){const t=y-(horizonY-nh);let c;
+      if(t<1)c=nearV[2];else if(sl>.9&&t<nh*.75&&h2(x,(y/3)|0)<.75)c=cliff[(h2(x*3,y)*3)|0];
+      else{const f=clamp(1.6-t/Math.max(4,nh*.5),0,1.99)+(h2(x,y)-.5)*.3;c=nearV[clamp(Math.floor(f+bay(x,y)-.5),0,2)]}put(x,y,c)}}
+  // paddy fields
+  const fG=[C('#9cc54a'),C('#86b440')],fY=[C('#d9c24e'),C('#c4ab3d')],bund=C('#6a8f34');
+  const cuts=[0];while(cuts[cuts.length-1]<W){cuts.push(cuts[cuts.length-1]+18+((r()*40)|0))}
+  const gold=cuts.map(()=>r()<.45);
+  for(let y=horizonY;y<groundY;y++){const t=(y-horizonY)/(groundY-horizonY);const band=Math.floor(Math.pow(t,1.4)*6);
+    const isB=Math.floor(Math.pow((y+1-horizonY)/(groundY-horizonY),1.4)*6)!==band&&y<groundY-1;
+    for(let x=0;x<W;x++){let s=0;while(cuts[s+1]<=x)s++;const pal=gold[s]?fY:fG;
+      put(x,y,isB||x===cuts[s]?bund:pal[(h2(x,y)<.3||((x+y*2)%5===0))?1:0])}}
+  // sugar/coconut palms on horizon
+  const pr=rng(5);for(let i=0;i<Math.max(3,W/50);i++){let x=Math.round(pr()*W);if(Math.abs(x-treeX)<TH*.8)continue;const ht=5+((pr()*5)|0),yb=horizonY+1+((pr()*2)|0);
+    for(let y=0;y<ht;y++)put(x+(y>ht*.6?1:0),yb-y,C('#5b4a32'));const tx=x+1,ty=yb-ht;
+    const fr=C('#25573a');[[-3,1],[-2,0],[-1,-1],[0,-1],[1,-1],[2,0],[3,1],[-2,1],[2,1],[-4,2],[4,2],[0,0],[1,0],[-1,0],[0,-2]].forEach(([a,c])=>put(tx+a,ty+c,fr))}
+  // ground
+  const gr=[C('#7cc04a'),C('#5aa63a'),C('#4c9431'),C('#3f8229')],soil=[C('#5a3a22'),C('#4a2f1c'),C('#3e2716'),C('#33200f')];
+  for(let y=groundY;y<H;y++)for(let x=0;x<W;x++){const t=y-groundY;let c;
+    if(t===0)c=gr[0];else if(t<4)c=gr[(1+(h2(x,y)<.3?1:0)+(t>2?1:0))];else if(t===4)c=h2(x,7)<.5?gr[3]:soil[0];
+    else{const f=clamp((t-5)/(H-groundY-5),0,1)*3;const i=Math.floor(f);c=soil[Math.min(3,(f-i)>bay(x,y)?i+1:i)];if(h2(x*7,y*3)<.025)c=C('#7a5a3a')}
+    put(x,y,c)}
+  for(let x=0;x<W;x++){const v=h2(x,99);if(v<.3)put(x,groundY-1,gr[1]);if(v<.08){put(x,groundY-2,gr[2]);put(x+1,groundY-1,gr[2])}}
+  // tree shadow
+  const sw=TH*.55;for(let y=groundY+1;y<groundY+4;y++)for(let x=-sw;x<=sw;x++){const d=Math.abs(x)/sw+(y-groundY-1)*.25;if(d<1&&bay(x+treeX,y)<.8-d*.5)put(Math.round(treeX+x),y,C('#3a7a26'))}
+  g.putImageData(im,0,0);
+}
+function makeClouds(){clouds.length=0;const r=rng(3);const n=Math.max(3,Math.round(W/60));
+  for(let i=0;i<n;i++){const w=14+((r()*16)|0),h=Math.round(w*.42);const c=document.createElement('canvas');c.width=w;c.height=h+1;const g=c.getContext('2d');
+    const blobs=[[w*.3,h*.65,h*.45],[w*.55,h*.45,h*.55],[w*.75,h*.7,h*.35],[w*.15,h*.8,h*.25]];
+    for(let y=0;y<=h;y++)for(let x=0;x<w;x++){let ins=false;for(const [bx,by,br] of blobs)if((x-bx)**2+(y-by)**2<=br*br)ins=true;
+      if(ins&&y<=h){g.fillStyle=y>h*.72?'#d6ebf3':'#ffffff';g.fillRect(x,y,1,1)}}
+    clouds.push({c,x:r()*W,y:4+r()*Math.max(4,horizonY*.45),v:.8+r()*1.8})}}
+
+/* ---------- tree rendering ---------- */
+let canBox=[0,0,0,0];
+function px(x,y,c){x|=0;y|=0;if(x>=0&&y>=0&&x<LW&&y<LH)lbuf[y*LW+x]=c}
+function line(x0,y0,x1,y1,w,c,cL){const n=Math.max(1,Math.ceil(Math.hypot(x1-x0,y1-y0)*1.5));
+  for(let i=0;i<=n;i++){const t=i/n,x=lerp(x0,x1,t),y=lerp(y0,y1,t),ww=lerp(w,Math.max(1,w*.6),t);
+    for(let k=0;k<ww;k++){const xx=Math.round(x-ww/2+k);px(xx,Math.round(y),k===0&&cL?cL:c)}}}
+function renderTree(t){
+  lbuf.fill(0);
+  const g=growth(t);
+  if(t<KEY[0][0]||g<.1)drawSeedling(t,g);
+  if(g>=.08){drawTree(g,t)}
+  lctx.putImageData(limg,0,0);
+}
+function drawSeedling(t,g){
+  const p=t<KEY[0][0]?0:clamp(g/.1,0,1);
+  // mango stone half-buried, cracks open
+  if(p<.7){const seedC=[C('#d8c49a'),C('#b59d70'),C('#8a7550')];
+    const sx=BX-2,sy=BY-1;[[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1]].forEach(([a,b],i)=>px(sx+a,sy+b,b===0?seedC[0]:seedC[1]));
+    px(sx,sy+1,seedC[2]);px(sx+4,sy+1,seedC[2]);
+    if(t>.9){px(sx+2,sy,C('#6a4a2a'))}
+    if(t>1.2||p>0){px(sx+2,sy-1,C('#7fbf45'))}}
+  if(t<KEY[0][0])return;
+  const h=Math.round(1+p*8);const stem=C('#5f9a36');
+  for(let i=0;i<h;i++)px(BX+(i>h*.6?(p>.5?1:0):0),BY-1-i,stem);
+  const tx=BX+(p>.5?1:0),ty=BY-h;const L=Math.round(1+p*3);
+  const young=p<.6?C('#a0522d'):p<.85?C('#7a7a32'):C('#3f8a38');const yd=p<.6?C('#7a3a20'):C('#2a6a2a');
+  for(let i=1;i<=L;i++){px(tx-i,ty+Math.floor(i/2),young);px(tx-i,ty+Math.floor(i/2)+1,yd);px(tx+i,ty+Math.floor(i/2),young);px(tx+i,ty+Math.floor(i/2)+1,yd)}
+  px(tx,ty-1,young);
+}
+function drawTree(g,t){
+  const u=TH*g,lift=(1-ss(.1,.6,g))*.35*u,trunkTop=.27*u+lift;
+  // trunk
+  const tw=Math.max(1,.075*u);
+  for(let y=0;y<=trunkTop;y++){const f=y/Math.max(1,trunkTop);const hw=tw/2*(1-.25*f)+Math.max(0,1.6-y)*.6*(g>.4?1:0);const ox=Math.sin(f*Math.PI)*.025*u;
+    const x0=Math.round(BX+ox-hw),x1=Math.round(BX+ox+hw);
+    for(let x=x0;x<=Math.max(x0,x1-1);x++){let c=BARK[1];if(x===x0&&x1-x0>1)c=BARK[2];else if(x>=x1-1&&x1-x0>2)c=BARK[0];if(h2(x,y)<.12&&x1-x0>2)c=BARK[3];px(x,BY-y,c)}}
+  // limbs
+  if(g>.25)for(let i=0;i<LIMBS.length;i++){const [lx,ly]=LIMBS[i];if(i>2&&g<.6)continue;
+    line(BX,BY-trunkTop+1,BX+lx*u,BY-(ly*u+lift),Math.max(1,tw*(i<3?.75:.45)),BARK[1],BARK[2])}
+  // canopy
+  const bl=[];let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  BLOBS.forEach(([cx,cy,r,th],i)=>{const k=ss(th,th+.18,g);if(k<=0)return;const rr=r*u*k*(g<.25?1.25:1);if(rr<.8)return;
+    const b={x:BX+cx*u,y:BY-(cy*u+lift),r:rr,i};bl.push(b);x0=Math.min(x0,b.x-rr*1.15);x1=Math.max(x1,b.x+rr*1.15);y0=Math.min(y0,b.y-rr*1.15);y1=Math.max(y1,b.y+rr*1.15)});
+  if(!bl.length)return;
+  x0=Math.max(0,Math.floor(x0));x1=Math.min(LW-1,Math.ceil(x1));y0=Math.max(0,Math.floor(y0));y1=Math.min(LH-1,Math.ceil(y1));
+  canBox=[x0,y0,x1,y1];
+  const span=Math.max(1,y1-y0);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    let best=0,lx=0,ly=0,re=1;
+    for(const b of bl){const dx=x-b.x,dy=y-b.y,d2=dx*dx+dy*dy,lim=b.r*1.15;if(d2>lim*lim)continue;const d=Math.sqrt(d2),a=Math.atan2(dy,dx);
+      const r=b.r*(1+.08*Math.sin(a*5+b.i*2.1)+.05*Math.sin(a*11+b.i*1.3));const v=1-d/r;if(v>best){best=v;lx=dx/r;ly=dy/r;re=r}}
+    if(best<=0)continue;
+    if(best*re<1){lbuf[y*LW+x]=OUT;continue}
+    const light=-.45*lx-.9*ly;const hf=(y1-y)/span;const c=h2(Math.floor(x/2.5),Math.floor(y/2));
+    const s=.42+.3*light+.28*(hf-.45)+(c-.5)*.42;
+    const idx=clamp(Math.floor(s*5+bay(x,y)-.5),0,5);lbuf[y*LW+x]=PAL[idx];
+  }
+  // flowers
+  const fT=t-13;
+  if(fT>0&&g>.98){const fade=clamp((t-16)/1.6,0,1);
+    const cream=C('#f8f0c6'),yel=C('#ecd270'),pink=C('#d8956a'),dry=C('#b49a66'),dry2=C('#8f7a50');
+    for(const f of FLW){const bloom=clamp((fT-f.d)/1.2,0,1);if(bloom<=0)continue;let len=Math.ceil(f.len*bloom);if(fade>=1)continue;if(fade>.55)len=Math.ceil(len*(1-(fade-.55)/.45)-1e-6);if(len<=0)continue;
+      len=Math.round(len*clamp(TH/80,.8,1.4));const fx=Math.round(BX+f.x*u),fy=Math.round(BY-(f.y*u+lift));const D=fade>.15;
+      for(let j=0;j<len;j++){const y=fy-j;px(fx,y,j===len-1?(D?dry:cream):(j<1?pink:(D?dry2:yel)));
+        if(j>=1&&j<len-1&&(j%2===1)){px(fx-1,y,D?dry:cream);px(fx+1,y,D?dry:(j%4===1?yel:cream))}}}}
+  // fruits
+  const rT=t-16;
+  if(rT>0&&g>.98){for(const f of FRU){const sz=clamp((rT-f.d)/1.8,0,1);if(sz<=0)continue;const rp=clamp((t-18.5-f.d*.5)/2.5,0,1);
+    const ax=Math.round(BX+f.x*u),ay=Math.round(BY-(f.y*u+lift));const st=Math.max(1,Math.round(f.st*Math.min(1,sz*1.5)));
+    for(let j=0;j<st;j++)px(ax,ay+j,C('#4d5a22'));drawMango(ax,ay+st,sz,rp,f.flip)}}
+}
+const MS={
+ big:[".KK...","KLLK..","KLGGK.","KLGGGK","KGGGGK","KGGGYK","KGGYYK",".KGYOK",".KYOK.","..KK.."],
+ mid:[".KK.","KLGK","KGGK","KGGK","KGYK",".KK."],
+ sml:["KK","GG","KK"]};
+function drawMango(x,y,sz,rp,flip){
+  const sp=sz<.35?MS.sml:sz<.7?MS.mid:MS.big;const w=sp[0].length;
+  const g=C(rp<.5?'#4f8f2a':'#6fa632'),l=C(rp<.5?'#7fbf45':'#a6d25a'),k=C('#1f3d14'),
+        yb=rp>.35?C(rp>.75?'#f0c63a':'#c9c23c'):g,ob=rp>.6?C('#F2A900'):yb;
+  for(let j=0;j<sp.length;j++)for(let i=0;i<w;i++){const ch=sp[j][flip?w-1-i:i];if(ch==='.')continue;
+    px(x-(w>>1)+i,y+j,ch==='K'?k:ch==='L'?l:ch==='G'?g:ch==='Y'?yb:ob)}
+}
+
+/* ---------- interaction ---------- */
+function shakeOff(row){ // row in layer coords
+  const e=real-shakeT;if(e>3||shakeA<=0)return 0;
+  const a=shakeA*Math.exp(-e/.55)*Math.sin(e*2*Math.PI*2.6);
+  const w=clamp((BY-row)/TH,0,1);return Math.round(a*Math.pow(w,1.4));
+}
+function hitTree(lx,ly){const g=growth(clock);if(g<.08)return Math.abs(lx-treeX)<6&&ly>baseY-14&&ly<baseY+3;
+  const [x0,y0,x1,y1]=canBox;return lx>=LX+x0-2&&lx<=LX+x1+2&&ly>=LY+y0-2&&ly<=baseY+2}
+const LEAFC=['#9ccf55','#b5d65a','#7cbf45','#d9c04a','#e0a83a','#d08a2e'];
+function poke(r=Math.random){
+  const g=growth(clock);const u=TH*g;
+  shakeA=Math.min(shakeA*Math.exp(-(real-shakeT)/.55)+Math.max(1.2,.045*u),Math.max(2,.07*u));shakeT=real;
+  if(g<.15)return;
+  const n=4+Math.floor(r()*3);const [x0,y0,x1,y1]=canBox;
+  for(let i=0;i<n;i++){const x=LX+lerp(x0+4,x1-4,r()),y=LY+lerp(y0,y1,.72+r()*.24);
+    leaves.push({x0:x,x,y,ph:r()*6.28,w:2.2+r()*1.8,amp:1.5+r()*2.5,vy:Math.max(16,H*.07)*(1+r()*.6),land:groundY+1+Math.floor(r()*4),c:LEAFC[Math.floor(r()*6)],t:0,ld:0})}
+}
+const LF=[[[0,0],[1,0],[1,1],[2,1],[3,2]],[[0,0],[1,0],[2,0],[3,0],[1,1],[2,1]],[[0,2],[1,1],[2,1],[2,0],[3,0]]];
+function stepLeaves(dt){for(let i=leaves.length-1;i>=0;i--){const l=leaves[i];
+  if(!l.ld){l.ph+=dt*l.w;l.y+=l.vy*dt*(0.75+.35*Math.abs(Math.cos(l.ph)));l.x=l.x0+Math.sin(l.ph)*l.amp;if(l.y>=l.land){l.y=l.land;l.ld=1}}
+  else{l.t+=dt;if(l.t>3.5)leaves.splice(i,1)}}}
+function drawLeaves(){for(const l of leaves){const f=l.ld?1:(Math.sin(l.ph)<-.35?0:Math.sin(l.ph)>.35?2:1);
+  ctx.globalAlpha=l.ld?clamp(1-(l.t-2.5),0,1):1;const lx=Math.round(l.x),ly=Math.round(l.y);ctx.fillStyle='#173012';for(const [a,b] of LF[f])ctx.fillRect(lx+a,ly+b+1,1,1);ctx.fillStyle=l.c;for(const [a,b] of LF[f])ctx.fillRect(lx+a,ly+b,1,1)}ctx.globalAlpha=1}
+
+/* ---------- loop ---------- */
+function draw(){
+  ctx.drawImage(sky,0,0);
+  for(const c of clouds)ctx.drawImage(c.c,Math.round(c.x),Math.round(c.y));
+  ctx.drawImage(land,0,0);
+  if(dirty||clock<21.5){renderTree(clock);dirty=false}
+  // draw tree layer row-strips with shake offset
+  let y=0;while(y<LH){const o=shakeOff(y);let y2=y+1;while(y2<LH&&shakeOff(y2)===o)y2++;ctx.drawImage(layer,0,y,LW,y2-y,LX+o,LY+y,LW,y2-y);y=y2}
+  drawLeaves();
+}
+let last=performance.now();
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(!paused){clock+=dt;real+=dt;stepLeaves(dt);for(const c of clouds){c.x+=c.v*dt;if(c.x>W)c.x=-c.c.width}}
+  draw();requestAnimationFrame(frame)}
+
+function toLogical(e){const r=cvs.getBoundingClientRect();return[(e.clientX-r.left)/S,(e.clientY-r.top)/S]}
+cvs.addEventListener('pointerdown',e=>{poke()});
+cvs.addEventListener('pointermove',e=>{const [x,y]=toLogical(e);cvs.style.cursor=hitTree(x,y)?'pointer':'default'});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(layout,120)});
+
+plan();layout();
+// debug/screenshot hooks: ?t=SECONDS freezes the timeline; &poke=SECONDS simulates a tap that long ago
+if(Q.has('t')){clock=parseFloat(Q.get('t'))||0;paused=true;dirty=true;renderTree(clock);
+  if(Q.has('poke')){const e=parseFloat(Q.get('poke'))||.4;poke(rng(9));const dt=1/60;for(let k=0;k<e*60;k++){real+=dt;stepLeaves(dt)}}}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{layout();if(paused)renderTree(clock)});
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
